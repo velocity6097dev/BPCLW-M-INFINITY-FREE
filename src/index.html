@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- Must stay first & unblocked by async/defer — see js/license-gate.js -->
+<script src="js/license-gate.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="theme-color" content="#10233F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BPCL W&amp;M Reimbursement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ═══ -->
+<header class="topbar">
+  <div class="topbar-badge" id="topbarBadge">
+    <div class="flame" id="topbarFallbackIcon"><i data-lucide="flame"></i></div>
+    <div class="wordmark" id="topbarFallbackWordmark">BPCL</div>
+    <img class="badge-logo" id="topbarLogoImg" alt="Logo">
+  </div>
+  <div class="topbar-title">
+    <h1 id="hdrStationName">BPCL W&amp;M Reimbursement</h1>
+    <p id="hdrStationSub">Stamping Fee Invoice Generator</p>
+  </div>
+  <div class="topbar-live">
+    <span class="lbl">Total</span>
+    <span class="val mono" id="liveTotal">₹0</span>
+  </div>
+  <button class="topbar-reset" onclick="confirmReset()" aria-label="Reset form" title="Reset form">
+    <i data-lucide="rotate-ccw"></i>
+  </button>
+</header>
+
+<!-- ═══ Station & Dealer Details ═══ -->
+<section class="content-card">
+  <div class="card-head"><span class="stepno">1</span><h3><i data-lucide="store"></i> Station &amp; Dealer Details</h3></div>
+  <div class="grid-2">
+    <div class="input-group" id="fc-station">
+      <label>Station Name <em>*</em></label>
+      <input type="text" id="stationName" placeholder="e.g. Bahar Service Station" autocapitalize="words" autocomplete="organization">
+      <span class="errmsg">Required</span>
+    </div>
+    <div class="input-group" id="fc-gstin">
+      <label>GSTIN <em>*</em></label>
+      <input type="text" id="gstin" placeholder="e.g. 19AAAAA0000A1Z5" maxlength="15" style="text-transform:uppercase;" autocapitalize="characters" autocomplete="off" oninput="onGstinInput()">
+      <span class="errmsg">Required</span>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="input-group" id="fc-cc">
+      <label>Dealer Code <em>*</em></label>
+      <input type="text" id="dealerCode" placeholder="e.g. 119934" inputmode="numeric" autocomplete="off" oninput="updateInvoiceNo()" onchange="cloudLookupDealer()">
+      <span class="errmsg">Required</span>
+    </div>
+    <div class="input-group" id="fc-vc">
+      <label>Vendor Code <em>*</em></label>
+      <input type="text" id="vendorCode" placeholder="e.g. 375911" inputmode="numeric" autocomplete="off">
+      <span class="errmsg">Required</span>
+    </div>
+  </div>
+  <div class="input-group">
+    <label>PAN No. <span class="hint">(auto)</span></label>
+    <input type="text" id="panNo" readonly style="background:var(--paper);color:var(--muted);">
+  </div>
+  <div class="input-group">
+    <label>Invoice No. <span class="hint">(auto-generated)</span></label>
+    <input type="text" id="invoiceNo" class="mono" placeholder="e.g. 04Aug26119934001" autocomplete="off" maxlength="16" oninput="onInvoiceNoManualEdit()">
+    <span class="hint">Date + dealer code + a daily sequence (01, 02…) that resets each day — never repeats. Edit freely if you need to.</span>
+  </div>
+  <div class="input-group" id="fc-invd">
+    <label>Invoice Date <em>*</em></label>
+    <div class="date-field">
+      <input type="text" id="invoiceDateDisplay" class="date-display" placeholder="DD/MM/YYYY" readonly inputmode="none" onclick="openDatePicker('invoiceDate')">
+      <input type="date" id="invoiceDate" class="date-native" tabindex="-1" oninput="syncDateDisplay('invoiceDate','invoiceDateDisplay');updateInvoiceNo()" onchange="syncDateDisplay('invoiceDate','invoiceDateDisplay');updateInvoiceNo()">
+    </div>
+    <span class="errmsg">Required</span>
+  </div>
+</section>
+
+<!-- ═══ Stamping & W&M Certificate ═══ -->
+<section class="content-card">
+  <div class="card-head"><span class="stepno">2</span><h3><i data-lucide="stamp"></i> Stamping &amp; W&amp;M Certificate</h3></div>
+  <div class="grid-2">
+    <div class="input-group" id="fc-sd">
+      <label>Stamping Date <em>*</em></label>
+      <div class="date-field">
+        <input type="text" id="stampDateDisplay" class="date-display" placeholder="DD/MM/YYYY" readonly inputmode="none" onclick="openDatePicker('stampDate')">
+        <input type="date" id="stampDate" class="date-native" tabindex="-1" oninput="syncDateDisplay('stampDate','stampDateDisplay')" onchange="syncDateDisplay('stampDate','stampDateDisplay')">
+      </div>
+      <span class="errmsg">Required</span>
+    </div>
+    <div class="input-group" id="fc-wd">
+      <label>W&amp;M Certificate Date <em>*</em></label>
+      <div class="date-field">
+        <input type="text" id="wmCertDateDisplay" class="date-display" placeholder="DD/MM/YYYY" readonly inputmode="none" onclick="openDatePicker('wmCertDate')">
+        <input type="date" id="wmCertDate" class="date-native" tabindex="-1" oninput="syncDateDisplay('wmCertDate','wmCertDateDisplay')" onchange="syncDateDisplay('wmCertDate','wmCertDateDisplay')">
+      </div>
+      <span class="errmsg">Required</span>
+    </div>
+  </div>
+  <div class="input-group" id="fc-wn">
+    <label>W&amp;M Certificate No. <em>*</em></label>
+    <input type="text" id="wmCertNo" placeholder="e.g. 91202502714443" inputmode="text" autocomplete="off">
+    <span class="errmsg">Required</span>
+  </div>
+  <div class="grid-2">
+    <div class="input-group" id="fc-grnno">
+      <label>GRN No. <em>*</em></label>
+      <input type="text" id="grnNo" placeholder="e.g. 46166" inputmode="numeric" autocomplete="off">
+      <span class="errmsg">Required</span>
+    </div>
+    <div class="input-group" id="fc-grndate">
+      <label>GRN Date <em>*</em></label>
+      <div class="date-field">
+        <input type="text" id="grnDateDisplay" class="date-display" placeholder="DD/MM/YYYY" readonly inputmode="none" onclick="openDatePicker('grnDate')">
+        <input type="date" id="grnDate" class="date-native" tabindex="-1" oninput="syncDateDisplay('grnDate','grnDateDisplay')" onchange="syncDateDisplay('grnDate','grnDateDisplay')">
+      </div>
+      <span class="errmsg">Required</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Equipment & Pricing ═══ -->
+<section class="content-card">
+  <div class="card-head"><span class="stepno">3</span><h3><i data-lucide="gauge"></i> Equipment &amp; Pricing</h3></div>
+  <p style="font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:14px;">A handwritten W&amp;M certificate can list more than one machine — add a row for each.</p>
+  <div id="mpdRows"></div>
+  <button type="button" class="btn-add-mpd" id="addMpdBtn" onclick="addMpdRow()">
+    <i data-lucide="plus"></i> Add MPD
+  </button>
+  <div class="grid-2">
+    <div class="input-group">
+      <label>Rate per Nozzle (₹)</label>
+      <input type="number" id="mpdRate" class="mono" value="1500.00" min="0" step="0.01" inputmode="decimal" oninput="recalc()">
+    </div>
+    <div class="input-group">
+      <label>Additional Charges / Conveyance (₹)</label>
+      <input type="number" id="addlAmt" class="mono" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="recalc()">
+    </div>
+  </div>
+  <div class="summary-box" style="margin-top:16px;">
+    <div class="summary-row"><span class="l">Stamping Fee (<span id="sbNozzles">0</span> × ₹<span id="sbRate">1500</span>)</span><span class="v mono" id="sbBase">₹0.00</span></div>
+    <div class="summary-row"><span class="l">Additional Charges</span><span class="v mono" id="sbAddl">₹0.00</span></div>
+    <div class="summary-row grand"><span class="l">GRAND TOTAL</span><span class="v mono" id="sbTotal">₹0.00</span></div>
+  </div>
+</section>
+
+<!-- ═══ Attachments ═══ -->
+<section class="content-card">
+  <div class="card-head"><span class="stepno">4</span><h3><i data-lucide="paperclip"></i> Full Page Attachments</h3></div>
+  <p style="font-size:11.5px;color:var(--muted);line-height:1.6;">Photos are added as extra pages in the PDF. Crop, straighten and position each one before saving. W&amp;M Cert and Receipt are required; Extra Doc is optional.</p>
+  <div class="att-grid" id="attGrid">
+    <div id="slot-cert"></div>
+    <div id="slot-receipt"></div>
+    <div id="slot-extra"></div>
+  </div>
+</section>
+
+<!-- hidden file inputs -->
+<input type="file" id="certFile" accept="image/*,application/pdf" style="display:none">
+<input type="file" id="receiptFile" accept="image/*,application/pdf" style="display:none">
+<input type="file" id="extraFile" accept="image/*,application/pdf" style="display:none">
+
+<!-- ═══ ACTION BUTTONS — stacked, in-flow ═══ -->
+<div class="actions-stack">
+  <button class="btn btn-blue" onclick="doPreview()"><i data-lucide="eye"></i> Preview Details</button>
+  <button class="btn btn-green" id="downloadBtn" onclick="doGeneratePDF()"><i data-lucide="download"></i> Download &amp; Share</button>
+</div>
+
+<!-- ═══ PREVIEW OVERLAY ═══ -->
+<div class="overlay" id="overlay">
+  <div class="ov-inner">
+    <div class="ov-bar">
+      <h3>Invoice Preview</h3>
+      <button onclick="closeOv()" aria-label="Close"><i data-lucide="x"></i></button>
+    </div>
+    <div class="preview-hint">Scroll to review the full letter before downloading</div>
+    <div id="previewHost"></div>
+    <div class="ov-foot">
+      <button class="btn btn-line" style="border:1.5px solid var(--line);color:var(--ink);" onclick="closeOv()">Close</button>
+      <button class="btn btn-green" onclick="doGeneratePDF()"><i data-lucide="download"></i> Download PDF</button>
+    </div>
+  </div>
+</div>
+
+<div id="cropHost"></div>
+<div id="extraTypeHost"></div>
+<div id="inv-render" style="position:absolute;left:-99999px;top:0;"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ═══ CLOUD LOADER — shown during any background fetch/sync/generation (js/cloud-sync.js) ═══ -->
+<div class="cloud-loader" id="cloudLoader" role="status" aria-live="polite">
+  <img src="assets/loader.gif" alt="">
+  <span id="cloudLoaderMsg">Working…</span>
+</div>
+
+<footer class="foot">
+  <div class="foot-tool">BPCL Weights &amp; Measures Reimbursement Tool</div>
+  <div class="foot-brand">
+    <span class="foot-brand-mark"><i data-lucide="zap"></i></span>
+    <span class="foot-brand-text">Built by <strong>velocity.logs</strong></span>
+  </div>
+</footer>
+
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/mpd-rows.js"></script>
+<script src="js/cloud-sync.js"></script>
+<script src="js/dates.js"></script>
+<script src="js/invoice-number.js"></script>
+<script src="js/attachments.js"></script>
+<script src="js/cropper.js"></script>
+<script src="js/invoice-template.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/security.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

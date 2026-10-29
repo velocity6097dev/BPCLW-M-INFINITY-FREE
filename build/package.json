@@ -1,0 +1,14 @@
+{
+  "name": "bpcl-wm-reimbursement-build",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build tooling that turns ../src into an obfuscated/minified ../dist for deployment.",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "clean-css": "^5.3.3",
+    "html-minifier-terser": "^7.2.0",
+    "javascript-obfuscator": "^4.1.1"
+  }
+}
